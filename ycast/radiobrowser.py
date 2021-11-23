@@ -116,3 +116,11 @@ def get_directories(apiparam, minimumcount=5):
                                                  get_json_attr(raw_directory, 'stationcount'),
                                                  format_displayname(get_json_attr(raw_directory, 'name'), apiparam)))
     return directories
+
+
+def click_vote(uid):
+    clickvote_json = request('url/' + str(uid))
+    if clickvote_json:
+        logging.debug("radio-browser replied: %s", get_json_attr(clickvote_json, 'message'))
+    else:
+        logging.error('clickvote did not work')
