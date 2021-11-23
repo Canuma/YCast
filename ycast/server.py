@@ -28,7 +28,7 @@ MINIMUM_COUNT_LANGUAGE = 5
 
 station_tracking = False
 my_stations_enabled = False
-enable_clickvote = False
+enable_clickvote = True
 app = Flask(__name__)
 
 
