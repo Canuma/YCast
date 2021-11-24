@@ -9,7 +9,6 @@ import ycast.my_stations as my_stations
 import ycast.generic as generic
 import ycast.station_icons as station_icons
 
-
 PATH_ROOT = 'ycast'
 PATH_PLAY = 'play'
 PATH_STATION = 'station'
@@ -17,10 +16,9 @@ PATH_SEARCH = 'search'
 PATH_ICON = 'icon'
 PATH_MY_STATIONS = 'my_stations'
 PATH_RADIOBROWSER = 'radiobrowser'
-PATH_RADIOBROWSER_COUNTRY = 'country'
 PATH_RADIOBROWSER_LANGUAGE = 'language'
-PATH_RADIOBROWSER_GENRE = 'genre'
-PATH_RADIOBROWSER_POPULAR = 'popular'
+PATH_RADIOBROWSER_GENRES_GERMAN = 'german'
+PATH_RADIOBROWSER_GENRES_ENGLISH = 'english'
 
 MINIMUM_COUNT_GENRE = 5
 MINIMUM_COUNT_COUNTRY = 5
@@ -31,6 +29,7 @@ my_stations_enabled = False
 enable_clickvote = True
 app = Flask(__name__)
 
+# Todo server needs refactoring. Need to learn more about flask, probably blueprints might help?
 
 def run(config, address='0.0.0.0', port=8010):
     try:
@@ -63,7 +62,7 @@ def get_directories_page(subdir, directories, request):
 def get_stations_page(stations, request):
     page = vtuner.Page()
     if len(stations) == 0:
-        page.add(vtuner.Display("No stations found"))
+        page.add(vtuner.Display("Keine Stationen gefunden"))
         page.set_count(1)
         return page
     for station in get_paged_elements(stations, request.args):
@@ -148,10 +147,14 @@ def upstream(path):
 
 
 @app.route('/',
-           defaults={'path': ''},
+           defaults={
+               'path': ''
+           },
            methods=['GET', 'POST'])
 @app.route('/' + PATH_ROOT + '/',
-           defaults={'path': ''},
+           defaults={
+               'path': ''
+           },
            methods=['GET', 'POST'])
 def landing(path=''):
     page = vtuner.Page()
@@ -160,7 +163,7 @@ def landing(path=''):
         page.add(vtuner.Directory('My Stations', url_for('my_stations_landing', _external=True),
                                   len(my_stations.get_category_directories())))
     else:
-        page.add(vtuner.Display("'My Stations' feature not configured."))
+        page.add(vtuner.Display("'Meine Stationen' sind nicht konfiguriert."))
         page.set_count(1)
     return page.to_string()
 
@@ -183,64 +186,175 @@ def my_stations_category(directory):
            methods=['GET', 'POST'])
 def radiobrowser_landing():
     page = vtuner.Page()
-    page.add(vtuner.Directory('Genres', url_for('radiobrowser_genres', _external=True),
-                              len(radiobrowser.get_directories('tags', MINIMUM_COUNT_GENRE))))
-    page.add(vtuner.Directory('Countries', url_for('radiobrowser_countries', _external=True),
-                              len(radiobrowser.get_directories('countries', MINIMUM_COUNT_COUNTRY))))
-    page.add(vtuner.Directory('Languages', url_for('radiobrowser_languages', _external=True),
-                              len(radiobrowser.get_directories('languages', MINIMUM_COUNT_LANGUAGE))))
-    page.add(vtuner.Directory('Most Popular', url_for('radiobrowser_popular', _external=True),
-                              len(radiobrowser.get_stations('votes'))))
+    page.add(vtuner.Directory('Deutsch', url_for('radiobrowser_language_german', _external=True), 8))
+    page.add(vtuner.Directory('Englisch', url_for('radiobrowser_language_english', _external=True), 8))
+    page.add(vtuner.Directory('Games', url_for('radiobrowser_games', _external=True),
+                              len(radiobrowser.get_stations('tag', 'games'))))
+    page.add(vtuner.Directory('Filme', url_for('radiobrowser_movies', _external=True),
+                              len(radiobrowser.get_stations('tag', 'movies'))))
+    page.set_count(1)
+    return page.to_string()
+
+
+@app.route(
+        '/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/' +
+        PATH_RADIOBROWSER_GENRES_GERMAN + '/',
+        methods=['GET', 'POST'])
+def radiobrowser_language_german():
+    genres = ('70er', '80er', '90er', 'rock', 'pop', 'klassik', 'weihnachten', 'nachrichten')
+    directories = []
+    for genre in genres:
+        directories.append(generic.Directory(genre, 4, str(genre).capitalize()))
+    return get_directories_page('radiobrowser_language_german_genre', directories, request).to_string()
+
+
+@app.route(
+        '/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/' +
+        PATH_RADIOBROWSER_GENRES_GERMAN + '/<directory>',
+        methods=['GET', 'POST'])
+def radiobrowser_language_german_genre(directory):
+    page = vtuner.Page()
+    page.add(
+        vtuner.Directory('Alphabetisch', url_for('radiobrowser_language_german_genre_stations_alpha', _external=True,
+                                                 directory=directory),
+                         len(radiobrowser.get_stations('tag', directory + '&languageExact=true&language=german'))))
+    page.add(
+        vtuner.Directory('Top 10 Trend', url_for('radiobrowser_language_german_genre_stations_trend', _external=True,
+                                                 directory=directory), 10))
+    page.add(
+        vtuner.Directory('Top 10 Votes', url_for('radiobrowser_language_german_genre_stations_votes', _external=True,
+                                                 directory=directory), 10))
+    page.add(
+        vtuner.Directory('Top 10 Klicks', url_for('radiobrowser_language_german_genre_stations_click', _external=True,
+                                                  directory=directory), 10))
     page.set_count(4)
     return page.to_string()
 
 
-@app.route('/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_COUNTRY + '/',
-           methods=['GET', 'POST'])
-def radiobrowser_countries():
-    directories = radiobrowser.get_directories('countries', MINIMUM_COUNT_COUNTRY)
-    return get_directories_page('radiobrowser_country_stations', directories, request).to_string()
-
-
-@app.route('/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_COUNTRY + '/<directory>',
-           methods=['GET', 'POST'])
-def radiobrowser_country_stations(directory):
-    stations = radiobrowser.get_stations('country', directory)
+@app.route(
+        '/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/' +
+        PATH_RADIOBROWSER_GENRES_GERMAN + '/<directory>/alphabetisch/',
+        methods=['GET', 'POST'])
+def radiobrowser_language_german_genre_stations_alpha(directory):
+    stations = radiobrowser.get_stations('tag', directory + '&languageExact=true&language=german')
     return get_stations_page(stations, request).to_string()
 
 
-@app.route('/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/',
-           methods=['GET', 'POST'])
-def radiobrowser_languages():
-    directories = radiobrowser.get_directories('languages', MINIMUM_COUNT_LANGUAGE)
-    return get_directories_page('radiobrowser_language_stations', directories, request).to_string()
-
-
-@app.route('/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/<directory>',
-           methods=['GET', 'POST'])
-def radiobrowser_language_stations(directory):
-    stations = radiobrowser.get_stations('language', directory)
+@app.route(
+        '/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/' +
+        PATH_RADIOBROWSER_GENRES_GERMAN + '/<directory>/topclick/',
+        methods=['GET', 'POST'])
+def radiobrowser_language_german_genre_stations_click(directory):
+    stations = radiobrowser.get_stations('tag', directory + '&languageExact=true&language=german', 10,
+                                         order='clickcount&reverse=true')
     return get_stations_page(stations, request).to_string()
 
 
-@app.route('/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_GENRE + '/',
-           methods=['GET', 'POST'])
-def radiobrowser_genres():
-    directories = radiobrowser.get_directories('tags', MINIMUM_COUNT_GENRE)
-    return get_directories_page('radiobrowser_genre_stations', directories, request).to_string()
-
-
-@app.route('/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_GENRE + '/<directory>',
-           methods=['GET', 'POST'])
-def radiobrowser_genre_stations(directory):
-    stations = radiobrowser.get_stations('tag', directory)
+@app.route(
+        '/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/' +
+        PATH_RADIOBROWSER_GENRES_GERMAN + '/<directory>/topvote/',
+        methods=['GET', 'POST'])
+def radiobrowser_language_german_genre_stations_votes(directory):
+    stations = radiobrowser.get_stations('tag', directory + '&languageExact=true&language=german', 10,
+                                         order='votes&reverse=true')
     return get_stations_page(stations, request).to_string()
 
 
-@app.route('/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_POPULAR + '/',
+@app.route(
+        '/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/' +
+        PATH_RADIOBROWSER_GENRES_GERMAN + '/<directory>/trend/',
+        methods=['GET', 'POST'])
+def radiobrowser_language_german_genre_stations_trend(directory):
+    stations = radiobrowser.get_stations('tag', directory + '&languageExact=true&language=german', 10,
+                                         order='clicktrend&reverse=true')
+    return get_stations_page(stations, request).to_string()
+
+
+@app.route(
+        '/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/' +
+        PATH_RADIOBROWSER_GENRES_ENGLISH + '/',
+        methods=['GET', 'POST'])
+def radiobrowser_language_english():
+    genres = ('70s', '80s', '90s', 'rock', 'pop', 'classic', 'christmas', 'news')
+    directories = []
+    for genre in genres:
+        directories.append(generic.Directory(genre, 4, str(genre).capitalize()))
+    return get_directories_page('radiobrowser_language_english_genre', directories, request).to_string()
+
+
+@app.route(
+        '/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/' +
+        PATH_RADIOBROWSER_GENRES_ENGLISH + '/<directory>',
+        methods=['GET', 'POST'])
+def radiobrowser_language_english_genre(directory):
+    page = vtuner.Page()
+    page.add(
+        vtuner.Directory('Alphabetisch', url_for('radiobrowser_language_english_genre_stations_alpha', _external=True,
+                                                 directory=directory),
+                         len(radiobrowser.get_stations('tag', directory + '&languageExact=true&language=english'))))
+    page.add(
+        vtuner.Directory('Top 10 Trend', url_for('radiobrowser_language_english_genre_stations_trend', _external=True,
+                                                 directory=directory), 10))
+    page.add(
+        vtuner.Directory('Top 10 Votes', url_for('radiobrowser_language_english_genre_stations_votes', _external=True,
+                                                 directory=directory), 10))
+    page.add(
+        vtuner.Directory('Top 10 Klicks', url_for('radiobrowser_language_english_genre_stations_click', _external=True,
+                                                  directory=directory), 10))
+    page.set_count(4)
+    return page.to_string()
+
+
+@app.route(
+        '/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/' +
+        PATH_RADIOBROWSER_GENRES_ENGLISH + '/<directory>/alphabetisch/',
+        methods=['GET', 'POST'])
+def radiobrowser_language_english_genre_stations_alpha(directory):
+    stations = radiobrowser.get_stations('tag', directory + '&languageExact=true&language=english')
+    return get_stations_page(stations, request).to_string()
+
+
+@app.route(
+        '/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/' +
+        PATH_RADIOBROWSER_GENRES_ENGLISH + '/<directory>/topclick/',
+        methods=['GET', 'POST'])
+def radiobrowser_language_english_genre_stations_click(directory):
+    stations = radiobrowser.get_stations('tag', directory + '&languageExact=true&language=english', 10,
+                                         order='clickcount&reverse=true')
+    return get_stations_page(stations, request).to_string()
+
+
+@app.route(
+        '/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/' +
+        PATH_RADIOBROWSER_GENRES_ENGLISH + '/<directory>/topvote/',
+        methods=['GET', 'POST'])
+def radiobrowser_language_english_genre_stations_votes(directory):
+    stations = radiobrowser.get_stations('tag', directory + '&languageExact=true&language=english', 10,
+                                         order='votes&reverse=true')
+    return get_stations_page(stations, request).to_string()
+
+
+@app.route(
+        '/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/' + PATH_RADIOBROWSER_LANGUAGE + '/' +
+        PATH_RADIOBROWSER_GENRES_ENGLISH + '/<directory>/trend/',
+        methods=['GET', 'POST'])
+def radiobrowser_language_english_genre_stations_trend(directory):
+    stations = radiobrowser.get_stations('tag', directory + '&languageExact=true&language=english', 10,
+                                         order='clicktrend&reverse=true')
+    return get_stations_page(stations, request).to_string()
+
+
+@app.route('/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/games/',
            methods=['GET', 'POST'])
-def radiobrowser_popular():
-    stations = radiobrowser.get_stations('votes')
+def radiobrowser_games():
+    stations = radiobrowser.get_stations('tag', 'games')
+    return get_stations_page(stations, request).to_string()
+
+
+@app.route('/' + PATH_ROOT + '/' + PATH_RADIOBROWSER + '/movies/',
+           methods=['GET', 'POST'])
+def radiobrowser_movies():
+    stations = radiobrowser.get_stations('tag', 'movies')
     return get_stations_page(stations, request).to_string()
 
 

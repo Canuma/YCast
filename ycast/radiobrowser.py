@@ -28,9 +28,8 @@ def format_displayname(displayname, apiparam):
     return displayname
 
 
-def request_station_builder(paramtype, param, limit):
+def request_station_builder(paramtype, param, limit, order):
     prefix = 'stations/search?order='
-    order = 'name&reverse=false'
     lim = '&limit=' + str(limit)
     req = '&' + str(paramtype) + 'Exact=true&' + str(paramtype) + '=' + str(param)
     hidebroken = '&hidebroken=true'
@@ -90,14 +89,15 @@ def get_station_by_id(uid):
         return None
 
 
-def get_stations(paramtype, param='', limit=DEFAULT_STATION_LIMIT):
+def get_stations(paramtype, param='', limit=DEFAULT_STATION_LIMIT, order='name&reverse=false'):
     """
     Generic Function for getting Stations. paramtype must be one
     of search, country, language, tag(getting genres),votes. See
     request_station_builder(paramtype, param, limit) to expand functionality
     """
+    print(param)
     stations = []
-    stations_json = request(request_station_builder(paramtype, param, limit))
+    stations_json = request(request_station_builder(paramtype, param, limit, order))
     for station_json in stations_json:
         stations.append(Station(station_json))
     return stations
