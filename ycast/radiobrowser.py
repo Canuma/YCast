@@ -33,13 +33,14 @@ def request_station_builder(paramtype, param, limit, order):
     lim = '&limit=' + str(limit)
     req = '&' + str(paramtype) + 'Exact=true&' + str(paramtype) + '=' + str(param)
     hidebroken = '&hidebroken=true'
+    is_https = '&is_https=false'
     if SHOW_BROKEN_STATIONS:
         hidebroken = '&hidebroken=false'
     if paramtype == 'votes':
         order = 'votes&reverse=true'
     if paramtype == 'search':
         req = '&name=' + str(param)
-    return prefix + order + lim + req + hidebroken
+    return prefix + order + lim + req + hidebroken + is_https
 
 
 class Station:
@@ -95,7 +96,6 @@ def get_stations(paramtype, param='', limit=DEFAULT_STATION_LIMIT, order='name&r
     of search, country, language, tag(getting genres),votes. See
     request_station_builder(paramtype, param, limit) to expand functionality
     """
-    print(param)
     stations = []
     stations_json = request(request_station_builder(paramtype, param, limit, order))
     for station_json in stations_json:
